@@ -16,6 +16,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+success() {
+    echo "Success: $*"
+    exit 0
+}
+
+failure() {
+    echo "Failure: $*"
+    echo "https://review.openstack.org/#/c/$review/"
+    exit 1
+}
+
 set -e
 
 if [ $# != 3 ]; then
@@ -35,7 +46,7 @@ LOGDIR="$3"
 cd $BASEDIR
 
 git checkout .
-git clean -d -f
+git clean -d -f > /dev/null
 
 git review -d "$review"
 rev=$(git rev-parse HEAD)
@@ -46,46 +57,32 @@ echo "Processing $rev pointed by $branch"
 git checkout master
 git branch -D $branch
 git show $rev  > diff.$$
-filterdiff -i '*/tests/*' < diff.$$ > fdiff.$$
+filterdiff -i '*/test*' < diff.$$ > fdiff.$$
 
 # No test
 if [ ! -s fdiff.$$ ]; then
     echo "No test"
     if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '/doc/')" ]; then
-	echo "Only doc"
-	exit 0
+	success "Only doc"
     else
-	echo "Code without test -> not good."
-	exit 1
+	failure "Code without test -> not good."
     fi
 fi
 
 # Only tests so no need to work further 
-if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '.*/tests/.*/test_.*\.py')" ]; then
-    echo "Only tests, nothing to check"
-    exit 0
+if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '.*/test.*\.py')" ]; then
+    success "Only tests, nothing to check"
 fi
 
 # Apply the filtered diff with only tests
 patch -p1 < fdiff.$$
 
 # We have code so see if at least one test fails without the code
-fail=0
-for tfile in $(sed -n -e 's@^+++ \([ab]/\)\?@@p' < fdiff.$$ | egrep '.*/tests/?.*/test_.*\.py'); do
-    testname=$(echo "$tfile" | sed -e 's@.*/tests/@@' -e 's@.py@@' -e 's@/@.@g')
-    echo "+ Running ./run_tests.sh $testname"
-    if ! ./run_tests.sh $testname >> $LOGDIR/$review.tests 2>&1; then
-	fail=1
-	break
-    fi
-done
-
-if [ $fail = 0 ]; then
-    echo "No test is failing (before adding the code) -> not good"
-    exit 1
+echo "+ Running ./run_tests.sh"
+if ! ./run_tests.sh >> $LOGDIR/$review.tests 2>&1; then
+    success "Some tests are failing before applying the new code"
 else
-    echo "Success"
-    exit 0
+    failure "No test is failing (before adding the code) -> not good"
 fi
 
 # verify-patch.sh ends here
