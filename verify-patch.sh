@@ -62,7 +62,7 @@ filterdiff -i '*/test*' < diff.$$ > fdiff.$$
 # No test
 if [ ! -s fdiff.$$ ]; then
     echo "No test"
-    if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '/doc/')" ]; then
+    if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '/doc/|.*\.pot?')" ]; then
 	success "Only doc"
     else
 	failure "Code without test -> not good."
