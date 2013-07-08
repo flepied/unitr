@@ -27,10 +27,16 @@ failure() {
     exit 1
 }
 
+cleanup() {
+    git checkout .
+    git clean -d -f > /dev/null
+    git branch -D $branch
+}
+
 set -e
 
-if [ $# != 3 ]; then
-    echo "Usage: $0 <review id> <git basedir> <log dir>" 1>&2
+if [ $# != 4 ]; then
+    echo "Usage: $0 <review id> <review number> <git basedir> <log dir>" 1>&2
     exit 1
 fi
 
@@ -40,13 +46,11 @@ if ! type -p filterdiff > /dev/null 2>&1; then
 fi
 
 review="$1"
-BASEDIR="$2"
-LOGDIR="$3"
+number="$2"
+BASEDIR="$3"
+LOGDIR="$4"
 
 cd $BASEDIR
-
-git checkout .
-git clean -d -f > /dev/null
 
 git review -d "$review"
 rev=$(git rev-parse HEAD)
@@ -54,10 +58,10 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 
 echo "Processing $rev pointed by $branch"
 
-git checkout master
-git branch -D $branch
+git checkout HEAD^ > /dev/null 2>&1
 git show $rev  > diff.$$
 filterdiff -i '*/test*' < diff.$$ > fdiff.$$
+trap cleanup 0
 
 # No test
 if [ ! -s fdiff.$$ ]; then
@@ -78,11 +82,22 @@ fi
 patch -p1 < fdiff.$$
 
 # We have code so see if at least one test fails without the code
-echo "+ Running ./run_tests.sh"
-if ! ./run_tests.sh >> $LOGDIR/$review.tests 2>&1; then
-    success "Some tests are failing before applying the new code"
-else
+fail=0
+log=$LOGDIR/$review.$number.tests.txt
+for tfile in $(sed -n -e 's@^+++ \([ab]/\)\?@@p' < fdiff.$$ | egrep '.*/test.*\.py'); do
+    testname=$(echo "$tfile" | sed -e 's@.*/tests/@@' -e 's@.py@@' -e 's@/@.@g')
+    echo "+ Running ./run_tests.sh $testname"
+    echo "+ Running ./run_tests.sh $testname" >> $log
+    if ! ./run_tests.sh $testname >> $log 2>&1 < /dev/null; then
+	fail=1
+	break
+    fi
+done
+
+if [ $fail = 0 ]; then
     failure "No test is failing (before adding the code) -> not good"
+else
+    success "Some tests are failing before applying the new code"
 fi
 
 # verify-patch.sh ends here
