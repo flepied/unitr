@@ -52,7 +52,7 @@ LOGDIR="$4"
 
 cd $BASEDIR
 
-git review -d "$review"
+git review -d "$review,$number"
 rev=$(git rev-parse HEAD)
 branch=$(git rev-parse --abbrev-ref HEAD)
 
@@ -84,11 +84,12 @@ patch -p1 < fdiff.$$
 # We have code so see if at least one test fails without the code
 fail=0
 log=$LOGDIR/$review.$number.tests.txt
+runner="tox -epy27"
 for tfile in $(sed -n -e 's@^+++ \([ab]/\)\?@@p' < fdiff.$$ | egrep '.*/test.*\.py'); do
     testname=$(echo "$tfile" | sed -e 's@.*/tests/@@' -e 's@.py@@' -e 's@/@.@g')
-    echo "+ Running ./run_tests.sh $testname"
-    echo "+ Running ./run_tests.sh $testname" >> $log
-    if ! ./run_tests.sh $testname >> $log 2>&1 < /dev/null; then
+    echo "+ Running $runner $testname"
+    echo "+ Running $runner $testname" >> $log
+    if ! $runner $testname >> $log 2>&1 < /dev/null; then
 	fail=1
 	break
     fi
