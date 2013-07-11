@@ -20,10 +20,12 @@ import json
 import os
 import sys
 
-QUEUE='/home/fred/work/unitr/queue'
-WORK='/home/fred/work/unitr/work'
-
 if __name__ == "__main__":
+    BASE = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+    QUEUE = os.path.join(BASE, 'queue')
+    WORK = os.path.join(BASE, 'work')
+
     while True:
         try:
             entry = json.loads(sys.stdin.readline())
