@@ -16,6 +16,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+export LC_ALL=C
+
 BASEDIR=$(cd $(dirname $0); pwd)
 
 mkdir -p $BASEDIR/done
