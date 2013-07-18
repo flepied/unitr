@@ -66,7 +66,7 @@ trap cleanup 0
 # No test
 if [ ! -s fdiff.$$ ]; then
     echo "No test"
-    if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '/doc/|.*\.pot?')" ]; then
+    if [ -z "$(sed -n -e 's/^+++ //p' < diff.$$ | egrep -v '/doc/|.*\.pot?$|.*\.(rst|txt|md)$')" ]; then
 	success "Only doc"
     else
 	failure "Code without test -> not good."
